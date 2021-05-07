@@ -1,0 +1,944 @@
+---
+title: "GOV 52: Replication Project"
+author: "Liam Hall"
+date: "`r format(Sys.time(), '%Y %B %d')`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#knitr::opts_chunk$set(fig.pos = "!H", out.extra = "")
+
+library(readr)
+library(tidyverse)
+library(readr)
+library(arm)
+library(dplyr)
+library(foreign)
+library(haven)
+library(ggplot2)
+library(ggthemes)
+library(extrafont)
+library(stringr)
+library(janitor)
+library(car)
+library(stargazer)
+library(dynamac)
+library(tseries)
+library(urca)
+library(forecast)
+library(TSstudio)
+library(aTSA)
+library(ARDL)
+library(msm)
+library(ggpubr)
+library(boot)
+library(grid)
+library(gridExtra)
+library(gtable)
+library(xtable)
+library(astsa)
+library(knitr)
+library(broom)
+library(kableExtra)
+
+```
+
+## Introduction
+The original paper *The Dynamic American Dream*, coauthored by Jennifer Wolak and David A.M. Peterson (2020), was published in the *American Journal of Political Science*^[The replication data was available through the Harvard dataverse. You can access the files [here](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/QTMOVG).] The paper analyzes the behavior of belief in the American dream over time, as it relates to economic inequality, social mobility, home ownership, public policy mood (that is, the public demand for liberal policy outcomes), consumer confidence, and the presence of U.S. midterm and presidential elections. Because the variables include both stationary and non-stationary time series, the authors opted to use a generalized error correction model (GECM) (Bannerjee et al. 1993; DeBoef and Keele 2008). Because of the high correlation between social mobility and economic inequality, the data are split into two models, one with the gini coefficient variable and one with the social mobility variable. Extending the findings from the GECM models, the paper also looks at which non-stationary, explanatory variables have a long run relationship with belief in the American dream, as reflected by long run multipliers and their respective t-values. Ultimately, the authors found positive correlations between belief in the American dream and social mobility, home ownership, consumer confidence (measured by index of consumer sentiment),.
+
+
+My replication of the models yielded the same numerical values and, therefore, the same interpretive conclusions. Rather than re-writing the conclusions from the original paper, I elaborate on why the original paper was designed as it was and extend the original model for new findings. I bootstraped the long run multiplier standard errors,   , and made the figure 2 bar plots into more intuitive line plots.
+
+The GECM model requires that non-stationary variables be lagged. There are numerous ways of testing stationarity - the ADF Test, the Dickey Fuller test, and the Phillips Perron Test to name a few. The original authors use 
+
+
+```{r cleaning and adding gecm variables, warning = FALSE, echo = FALSE}
+am_dream_data <- read_dta("raw_data/belief in the american dream dataset.dta")
+
+#code for the first graph
+
+amer_dream <- am_dream_data %>% 
+  mutate(year_decimal = map_chr(am_dream_data$yearquarter, ~ str_replace_all(., "q1", ""))) %>% 
+  mutate(year_decimal = map_chr(year_decimal, ~ str_replace_all(., "q2", ".25"))) %>% 
+  mutate(year_decimal = map_chr(year_decimal, ~ str_replace_all(., "q3", ".5"))) %>% 
+  mutate(year_decimal = map_chr(year_decimal, ~ str_replace_all(., "q4", ".75"))) %>% 
+  mutate(year_decimal = as.numeric(year_decimal)) %>% 
+  mutate(amdream = as.numeric(amdream))
+
+#code for the gecm model variables
+
+lag_data <- amer_dream %>% 
+  mutate(gini_lag = lag(ginihq, 1)) %>% 
+  mutate(gini_delta = ginihq - gini_lag) %>% 
+  mutate(tperiod = ceiling(as.numeric(rownames(amer_dream))/36)) %>% 
+  mutate(am_lag = lag(amdream, 1)) %>% 
+  mutate(am_delta = amdream - am_lag) %>%
+  mutate(soc_lag = lag(socmobq, 1)) %>% 
+  mutate(soc_delta = socmobq - soc_lag) %>% 
+  mutate(home_lag = lag(homeown, 1))  %>% 
+  mutate(home_delta = homeown - home_lag) %>% 
+  mutate(mood_lag = lag(mood, 1)) %>% 
+  mutate(mood_delta = mood - mood_lag) %>% 
+  mutate(ics_lag = lag(ics, 1)) %>% 
+  mutate(ics_delta = ics - ics_lag)
+
+
+```
+
+
+```{r model and lrm values, results="asis", echo = FALSE}
+
+options(xtable.comment = FALSE)
+
+mod1 <- lm(am_delta ~ am_lag + gini_delta + gini_lag + home_delta + home_lag + mood_delta + mood_lag + ics_delta + ics_lag + midterm + prezcamp,
+           data = lag_data)
+
+mod2 <- lm(am_delta ~ am_lag + soc_delta + soc_lag + home_delta + home_lag + mood_delta + mood_lag + ics_delta + ics_lag + midterm + prezcamp, data = lag_data)
+
+#trying to use the coefficient errors to calculate the error 
+# mod1_errors <- as.data.frame(coef(summary(mod1))[, 2]) %>% 
+#   mutate(errors = coef(summary(mod1))[, 2], 
+#          named = c("am_delta",
+#                    "am_lag",
+#                    "gini_delta",
+#                    "gini_lag",
+#                    "home_delta",
+#                    "home_lag",
+#                    "mood_delta",
+#                    "mood_lag",
+#                    "ics_delta",
+#                    "ics_lag",
+#                    "midterm",
+#                    "prezcamp")) %>%  
+#   dplyr::select(errors, named) %>% 
+#   pivot_wider(values_from = errors, names_from = named)
+  
+
+#standard errors for LRMs
+
+
+# am_l <- lag_data %>% 
+#   dplyr::select(am_lag) %>% 
+#   drop_na()
+# 
+# am_d <- lag_data %>% 
+#   dplyr::select(am_delta) %>% 
+#   drop_na()  
+# 
+# gini_l <- lag_data %>% 
+#   dplyr::select(gini_lag) %>% 
+#   drop_na()
+# 
+# gini_d <- lag_data %>% 
+#   dplyr::select(gini_delta) %>% 
+#   drop_na()  
+# 
+# soc_l <- lag_data %>% 
+#   dplyr::select(soc_lag) %>% 
+#   drop_na()
+# 
+# soc_d <- lag_data %>% 
+#   dplyr::select(soc_delta) %>% 
+#   drop_na()
+# 
+# home_l <- lag_data %>% 
+#   dplyr::select(home_lag) %>% 
+#   drop_na()
+# 
+# home_d <- lag_data %>% 
+#   dplyr::select(home_delta) %>% 
+#   drop_na()
+# 
+# mood_l <- lag_data %>% 
+#   dplyr::select(mood_lag) %>% 
+#   drop_na()
+# 
+# mood_d <- lag_data %>% 
+#   dplyr::select(mood_delta) %>% 
+#   drop_na()
+# 
+# ics_l <- lag_data %>% 
+#   dplyr::select(ics_lag) %>% 
+#   drop_na()
+# 
+# ics_d <- lag_data %>% 
+#   dplyr::select(ics_delta) %>% 
+#   drop_na()
+# 
+# mid <- lag_data %>% 
+#   dplyr::select(midterm) %>% 
+#   drop_na()
+# 
+# prez <- lag_data %>% 
+#   dplyr::select(prezcamp) %>% 
+#   drop_na()
+# 
+# B <- 1000
+# 
+# 
+# am_l.mat <- am_d.mat <- gini_l.mat <- gini_d.mat <- soc_l.mat <- soc_d.mat <-NULL
+# home_l.mat <- home_d.mat <- mood_l.mat <- mood_d.mat <- ics_l.mat <- ics_d.mat <- NULL
+# mid.mat <- prez.mat <- NULL
+# 
+# for (i in 1:B)  {
+#   
+#   am_l.mat <- rbind(am_l.mat,   sample(am_l, length(am_l),
+#                                                 replace=TRUE))
+#   
+#   am_d.mat <- rbind(am_d.mat, sample(am_d ,length(am_d),
+#                                                 replace=TRUE))
+#   
+#   gini_l.mat <- rbind(gini_l.mat,   sample(gini_l, length(gini_l),
+#                                                 replace=TRUE))
+#   
+#   gini_d.mat <- rbind(gini_d.mat, sample(gini_d ,length(gini_d),
+#                                                 replace=TRUE))
+# 
+#   soc_l.mat <- rbind(soc_l.mat,   sample(soc_l, length(soc_l),
+#                                                 replace=TRUE))
+#   
+#   soc_d.mat <- rbind(soc_d.mat, sample(soc_d, length(soc_d),
+#                                                 replace=TRUE))
+#   
+#   home_l.mat <- rbind(home_l.mat,   sample(home_l, length(home_l),
+#                                                 replace=TRUE))
+#   
+#   home_d.mat <- rbind(home_d.mat, sample(home_d ,length(home_d),
+#                                                 replace=TRUE))
+#   
+#   mood_l.mat <- rbind(mood_l.mat,   sample(mood_l, length(mood_l),
+#                                                 replace=TRUE))
+#   
+#   mood_d.mat <- rbind(mood_d.mat, sample(mood_d, length(mood_d),
+#                                                 replace=TRUE))
+#   
+#   ics_l.mat <- rbind(ics_l.mat,   sample(ics_l, length(ics_l),
+#                                                 replace=TRUE))
+#   
+#   ics_d.mat <- rbind(ics_d.mat, sample(ics_d, length(ics_d),
+#                                                 replace=TRUE))
+#   
+#   mid.mat <- rbind(mid.mat,   sample(mid, length(mid),
+#                                                 replace=TRUE))
+#   
+#   prez.mat <- rbind(prez.mat, sample(prez, length(prez),
+#                                                 replace=TRUE))
+#   
+#   }
+# 
+# am_l_mean <- mean(apply(gini_l.mat, 1, mean))
+# 
+# am_d_mean <- mean(apply(gini_d.mat, 1, mean))
+# 
+# gini_l_mean <- mean(apply(gini_l.mat, 1, mean))
+# 
+# gini_l_mean <- mean(apply(gini_l.mat, 1, mean))
+# 
+# soc_d_mean <- mean(apply(gini_d.mat, 1, mean))
+# 
+# soc_l_mean <- mean(apply(gini_l.mat, 1, mean))
+# 
+# home_l_mean <- mean(apply(gini_l.mat, 1, mean))
+# 
+# home_d_mean <- mean(apply(gini_d.mat, 1, mean))
+# 
+# mood_l_mean <- mean(apply(gini_l.mat, 1, mean))
+# 
+# mood_l_mean <- mean(apply(gini_l.mat, 1, mean))
+# 
+# ics_d_mean <- mean(apply(gini_d.mat, 1, mean))
+# 
+# ics_l_mean <- mean(apply(gini_l.mat, 1, mean))
+# 
+# mid_l_mean <- mean(apply(gini_l.mat, 1, mean))
+# 
+# prez_d_mean <- mean(apply(gini_d.mat, 1, mean))
+
+boot_function <- function(data, i, formula){
+  d <- data[i, ]
+  obj <- lm(formula, d)
+  coef(obj)
+  #coefs <- summary(obj)$coefficients
+  #coefs[, 1] # the second row is the standard errors
+}
+
+set.seed(6)
+
+se_booted_1 <- boot(lag_data, boot_function, R = 1000, 
+     formula = am_delta ~ am_lag + gini_delta + gini_lag + home_delta +
+       home_lag + mood_delta + mood_lag + ics_delta + ics_lag + midterm +
+       prezcamp)
+
+se_boot_1 <- as.data.frame(apply(se_booted_1$t, 2, sd))
+se_orig_1 <- summary(mod1)$coef[,2]
+
+se_comp_mod1 <- as.data.frame(cbind(se_boot_1, se_orig_1)) %>% 
+  clean_names() %>% 
+  rename(original = se_orig_1,
+         bootstrapped = "apply_se_booted_1_t_2_sd") %>% 
+  mutate(variable = rownames(.)) %>% 
+  dplyr::select(original, bootstrapped) %>% 
+  mutate(pct_diff = (original-bootstrapped)/original)
+
+
+set.seed(6)
+
+se_booted_2 <- boot(lag_data, boot_function, R = 1000, 
+     formula = am_delta ~ am_lag + soc_delta + soc_lag + home_delta +
+       home_lag + mood_delta + mood_lag + ics_delta + ics_lag + midterm +
+       prezcamp)
+
+se_boot_2 <- as.data.frame(apply(se_booted_2$t, 2, sd))
+se_orig_2 <- summary(mod2)$coef[,2]
+
+se_comp_mod2 <- as.data.frame(cbind(se_boot_2, se_orig_2)) %>% 
+  clean_names() %>%
+  rename(original = se_orig_2,
+         bootstrap = "apply_se_booted_2_t_2_sd") %>% 
+  mutate(variable = rownames(.)) %>% 
+  dplyr::select(original, bootstrap) %>% 
+  mutate(pct_diff = (original-bootstrap)/original)
+
+ print(xtable(se_comp_mod1, caption = "Model One Standard Error vs. Bootstrapped Standard Errors"),
+       caption.placement = "top")
+ 
+ print(xtable(se_comp_mod2, caption = "Model Two Standard Error vs. Bootstrapped Standard Errors"),
+       caption.placement = "top")
+
+
+```
+
+
+\newpage
+
+```{r stationarity, include = FALSE, warning=FALSE}
+options(xtable.comment = FALSE)
+
+mod1_data <- lag_data %>% 
+  dplyr::select(year_decimal, amdream, ginihq, homeown, mood, ics, midterm, prezcamp) %>% 
+  drop_na()
+
+mod2_data <- lag_data %>% 
+  dplyr::select(year_decimal, amdream, socmobq, homeown, mood, ics, midterm, prezcamp) %>% 
+  drop_na()
+
+am_ts <- ts(mod1_data$amdream, start = 1973, frequency = 4)
+
+gini_ts <- ts(mod1_data$ginihq, start = 1973, frequency = 4)
+
+soc_ts <-  ts(mod2_data$socmobq, start = 1973, frequency = 4)
+
+home_ts <- ts(mod1_data$homeown, start = 1973, frequency = 4)
+
+mood_ts <- ts(mod1_data$mood, start = 1973, frequency = 4)
+
+ics_ts <- ts(mod1_data$ics, start = 1973, frequency = 4)
+
+midterm_ts <- ts(mod1_data$midterm, start = 1973, frequency = 4)
+
+prezcamp_ts <- ts(mod1_data$prezcamp, start = 1973, frequency = 4)
+
+
+#check for stationarity
+
+#stationary means that it does not change with time - its not cyclical
+
+pp_am <- as.data.frame(pp.test(am_ts))
+#non-stationary
+
+pp_g <- as.data.frame(pp.test(gini_ts))
+#non-stationary
+
+pp_s <- as.data.frame(pp.test(soc_ts))
+#non-stationary
+
+pp_h <- as.data.frame(pp.test(home_ts))
+#non-stationary
+
+pp_m <- as.data.frame(pp.test(mood_ts))
+#non-stationary
+
+pp_i <- as.data.frame(pp.test(ics_ts))
+#non-stationary
+
+pp_mid <- as.data.frame(pp.test(midterm_ts))
+#stationary
+
+pp_prez <- as.data.frame(pp.test(prezcamp_ts)) 
+#stationary
+```
+
+
+```{r stationarity table, echo = FALSE, warning=FALSE, results="asis"}
+pp_data <- rbind(pp_am, pp_g, pp_s, pp_h, pp_m, pp_i, pp_mid, pp_prez) %>% 
+  mutate(variable = c("American Dream",
+                      "American Dream",
+                      "American Dream",
+                      "Gini",
+                      "Gini",
+                      "Gini",
+                      "Social Mobility",
+                      "Social Mobility",
+                      "Social Mobility",
+                      "Home Ownership",
+                      "Home Ownership",
+                      "Home Ownership",
+                      "Policy Mood",
+                      "Policy Mood",
+                      "Policy Mood",
+                      "Consumer Confidence",
+                      "Consumer Confidence",
+                      "Consumer Confidence",
+                      "Midterm Election",
+                      "Midterm Election",
+                      "Midterm Election",
+                      "Presidential Election",
+                      "Presidential Election",
+                      "Presidential Election")) %>% 
+  
+  mutate(type = c("Type 1: no drift, no trend",
+                  "Type 2: with drift, no trend",
+                  "Type 3: with drift, and trend",
+                  "Type 1: no drift, no trend",
+                  "Type 2: with drift, no trend",
+                  "Type 3: with drift, and trend",
+                  "Type 1: no drift, no trend",
+                  "Type 2: with drift, no trend",
+                  "Type 3: with drift, and trend",
+                  "Type 1: no drift, no trend",
+                  "Type 2: with drift, no trend",
+                  "Type 3: with drift, and trend",
+                  "Type 1: no drift, no trend",
+                  "Type 2: with drift, no trend",
+                  "Type 3: with drift, and trend",
+                  "Type 1: no drift, no trend",
+                  "Type 2: with drift, no trend",
+                  "Type 3: with drift, and trend",
+                  "Type 1: no drift, no trend",
+                  "Type 2: with drift, no trend",
+                  "Type 3: with drift, and trend",
+                  "Type 1: no drift, no trend",
+                  "Type 2: with drift, no trend",
+                  "Type 3: with drift, and trend")) %>% 
+  dplyr::select(type, lag, Z_rho, p.value)
+
+row.names(pp_data) <- NULL
+
+kable(pp_data, caption = "Variable Stationarities",
+      col.names = c("Variable", "Lag", "Z_rho", "p-value"),
+      format = "latex",
+      booktabs = T) %>%
+    kable_styling(latex_options = "striped") %>%
+    group_rows("American Dream", 1, 3) %>%
+    group_rows("Gini Coefficient", 4, 6) %>%
+    group_rows("Social Mobility", 7, 9) %>%
+    group_rows("Home Ownership", 10, 12) %>% 
+    group_rows("Policy Mood", 13, 15) %>%
+    group_rows("Consumer Confidence", 16, 18) %>% 
+    group_rows("Midterm Election", 19, 21) %>%
+    group_rows("Presidential Election", 22, 24) 
+
+```
+
+\newpage
+
+```{r stationary tables, results = "asis", include=FALSE, warning = FALSE}
+
+# print(xtable(pp_am, digits = 4, caption = "American Dream Stationarity"),
+#       caption.placement = "top")
+# 
+# print(xtable(pp_g, digits = 4, caption = "Gini Coefficient Stationarity"), 
+#       caption.placement = 'top')
+# 
+# print(xtable(pp_h, digits = 4, caption = "Home Ownership Rate Stationarity"), 
+#       caption.placement = 'top')
+# 
+# print(xtable(pp_m, digits = 4, caption = "Public Policy Mood Stationarity"), 
+#       caption.placement = 'top')
+# 
+# print(xtable(pp_i, digits = 4, caption = "Consumer Confidence Stationarity"), 
+#       caption.placement = 'top')
+# 
+# print(xtable(pp_mid, digits = 4, caption = "Midterm Election Stationarity"), 
+#       caption.placement = 'top')
+# 
+# print(xtable(pp_prez, digits = 4, caption = "Presidential Election Stationarity"), 
+#       caption.placement = 'top')
+# 
+# kable(, format = "latex", caption = "Group Rows", booktabs = T) %>%
+#     kable_styling() %>%
+#     group_rows("Group 1", 4, 7) %>%
+#     group_rows("Group 2", 8, 10)
+
+```
+\newpage
+
+```{r stationarity plots pt 1, echo = FALSE, warning=FALSE, fig.align="center", fig.width=7, fig.height=5}
+
+am_plot <- lag_data %>% 
+  ggplot(aes(year_decimal, amdream)) + 
+  geom_line() +
+  theme_classic() +
+  scale_y_continuous(breaks = seq(from = 0, to = 70, by = 10),
+                     limits = c(0, 70)) +
+  scale_x_continuous(breaks = seq(from = 1973, to = 2018, by = 3),
+                     limits = c(1973, 2019),
+                     labels = seq(from = 1973, to = 2018, by = 3)) +
+
+  #because labels vector has to be same length as breaks vector, it wasn't
+  #possible to make three ticks on the x axis for every label
+  
+  theme(axis.line = element_line(color = "grey85"),
+        axis.ticks = element_line(color = "grey85"),
+        axis.ticks.length = unit(-3, "pt"),
+        axis.text.x = element_text(margin = margin(t = 15, "pt"),
+                                   family = "Century"),
+        axis.text.y = element_text(margin = margin(r = 10, "pt"),
+                                   family = "Century"),
+        
+        axis.title.x = element_text(family = "Century"),
+        axis.title.y = element_text(family = "Century"),
+        
+        plot.title = element_text(face = "bold",
+                                  size = 14,
+                                  family = "Century")) +
+  
+  labs(y = "Public Belief in the American Dream",
+       x = "Time (year by quarter)",
+       title = "Figure 1: The Dynamics of Public Belief in the American Dream")
+
+am_plot
+```
+
+
+```{r stationarity plots pt 2, echo = FALSE, warning=FALSE, out.width=c('50%', '50%'), fig.show='hold'}
+
+gini_plot <- lag_data %>% 
+  dplyr::select(year_decimal, ginihq) %>% 
+  drop_na() %>% 
+  ggplot(aes(year_decimal, ginihq)) + 
+  geom_line() +
+  theme_classic() +
+  
+  scale_y_continuous(breaks = seq(from = .37, to = .5, by = .01),
+                     limits = c(.37, .5)) +
+  scale_x_continuous(breaks = seq(from = 1973, to = 2018, by = 3),
+                     limits = c(1973, 2019),
+                     labels = seq(from = 1973, to = 2018, by = 3)) +
+
+  theme(axis.line = element_line(color = "grey85"),
+        axis.ticks = element_line(color = "grey85"),
+        axis.ticks.length = unit(-3, "pt"),
+        axis.text.x = element_text(margin = margin(t = 15, "pt"),
+                                   family = "Century"),
+        axis.text.y = element_text(margin = margin(r = 5, "pt"),
+                                   family = "Century"),
+        axis.title.x = element_text(family = "Century"),
+        axis.title.y = element_text(family = "Century"),
+        plot.title = element_text(face = "bold",
+                                  size = 14,
+                                  family = "Century")) +
+  
+  # ylim(0, 70) +
+  # xlim(1973, 2019) + 
+
+  labs(x = "Year (by quarter)",
+       y = "Economic Inequality (gini coefficient)",
+       title = "Figure 2: The Dynamics of Economic Inequality in America")
+
+gini_plot
+
+prez_plot <- lag_data %>% 
+  dplyr::select(year_decimal, prezcamp) %>% 
+  drop_na() %>% 
+  ggplot(aes(year_decimal, prezcamp)) + 
+  geom_line() +
+  theme_classic() +
+  
+  scale_y_continuous(breaks = seq(from = 0, to = 4, by = .5),
+                     limits = c(0, 4)) +
+  scale_x_continuous(breaks = seq(from = 1973, to = 2018, by = 3),
+                     limits = c(1973, 2019),
+                     labels = seq(from = 1973, to = 2018, by = 3)) +
+    
+  # ylim(0, 70) +
+  # xlim(1973, 2019) + 
+
+  labs(x = "Year (by quarter)",
+       y = "",
+       title = "Figure 3: Behavior of American Presidential Campaign Cycles") +
+
+  theme(axis.line = element_line(color = "grey85"),
+        axis.ticks = element_line(color = "grey85"),
+        axis.ticks.length = unit(-3, "pt"),
+        axis.text.x = element_text(margin = margin(t = 15, "pt"),
+                                   family = "Century"),
+        axis.text.y = element_text(margin = margin(r = 5, "pt"),
+                                   family = "Century"),
+        axis.title.x = element_text(family = "Century"),
+        axis.title.y = element_text(family = "Century"),
+        plot.title = element_text(face = "bold",
+                                  size = 14,
+                                  family = "Century"))
+
+prez_plot
+
+```
+
+
+```{r lrm se, echo = FALSE}
+
+#LRM value calculations 
+
+#model one calculations
+
+gini_lrm_1 <- -(mod1$coefficients[4]/mod1$coefficients[2])
+home_lrm_1 <- -(mod1$coefficients[6]/mod1$coefficients[2])
+mood_lrm_1 <- -(mod1$coefficients[8]/mod1$coefficients[2])
+ics_lrm_1 <- -(mod1$coefficients[10]/mod1$coefficients[2])
+
+#model two calculations
+
+soc_lrm_2 <- -(mod2$coefficients[4]/mod2$coefficients[2])
+home_lrm_2 <- -(mod2$coefficients[6]/mod2$coefficients[2])
+mood_lrm_2 <- -(mod2$coefficients[8]/mod2$coefficients[2])
+ics_lrm_2 <- -(mod2$coefficients[10]/mod2$coefficients[2])
+
+
+#LRM is  negative ratio of the coefficients
+#https://lib.dr.iastate.edu/cgi/viewcontent.cgi?article=1059&context=pols_pubs
+
+
+#LRM standard error calculations
+
+#model one calculations
+
+gini_lrm_se_1 <- deltamethod(~x4/x2, coef(mod1), vcov(mod1))
+home_lrm_se_1 <- deltamethod(~x6/x2, coef(mod1), vcov(mod1))
+mood_lrm_se_1 <- deltamethod(~x8/x2, coef(mod1), vcov(mod1))
+ics_lrm_se_1 <- deltamethod(~x10/x2, coef(mod1), vcov(mod1))
+
+#model two calculations
+
+soc_lrm_se_2 <- deltamethod(~x4/x2, coef(mod2), vcov(mod2))
+home_lrm_se_2 <- deltamethod(~x6/x2, coef(mod2), vcov(mod2))
+mood_lrm_se_2 <- deltamethod(~x8/x2, coef(mod2), vcov(mod2))
+ics_lrm_se_2 <- deltamethod(~x10/x2, coef(mod2), vcov(mod2))
+
+#alternative method for standard error calculations - bootstrapping
+#slide 36 in week 11_MC
+
+#t values for LRMs
+
+#model one calculations
+
+gini_lrm_t_1 <- gini_lrm_1/gini_lrm_se_1
+home_lrm_t_1 <- home_lrm_1/home_lrm_se_1
+mood_lrm_t_1 <- mood_lrm_1/mood_lrm_se_1
+ics_lrm_t_1 <- ics_lrm_1/ics_lrm_se_1
+
+#model two calculations
+
+soc_lrm_t_2 <- soc_lrm_2/soc_lrm_se_2
+home_lrm_t_2 <- home_lrm_2/home_lrm_se_2
+mood_lrm_t_2 <- mood_lrm_2/mood_lrm_se_2
+ics_lrm_t_2 <- ics_lrm_2/ics_lrm_se_2
+
+
+```
+
+
+```{r results = 'asis', echo=FALSE,  fig.align="center", fig.width=7, fig.height=9}
+
+names <- c("Belief in the American Dream$_{t-1}$",
+     "$\\Delta$ Gini coefficient",
+     "Gini coefficient$_{t-1}$",
+     "$\\Delta$ Social mobility",
+     "Social mobility$_{t-1}$",
+     "$\\Delta$ Homeownership",
+     "Homeownership$_{t-1}$",
+     "$\\Delta$ Policy mood",
+     "Policy mood$_{t-1}$",
+     "$\\Delta$ Index of consumer sentiment",
+     "Index of consumer sentiment$_{t-1}$",
+     "Midterm election",
+     "Presidential campaign",
+     "Constant")
+
+stargazer(mod1, mod2,
+          header = FALSE,
+          column.labels = c("Model 1", "Model 2"),
+          title = "Explaining Belief in the American Dream",
+          dep.var.labels = "$\\Delta$ in Belief in the American Dream",
+          covariate.labels = names,
+          #style = "aer",
+          #column.sep.width = "0pt",
+          model.numbers = FALSE,
+          no.space = TRUE,
+          font.size = "small",
+          omit.stat = c("f", "ser", "adj.rsq"),
+          notes = c("$\\dagger$ denotes significant LRMs, where t-value exceeds
+                    absolute value of 3.560",
+                    "standard errors wrapped in parentheses"),
+          add.lines = list(c("$\t{Long}$ $\t{run}$ $\t{multipliers}$", "", ""),
+                           c("LRM, Gini coefficient", "-108.1521$\\dagger$",""),
+                           c("standard error", "(26.9571)", ""),
+                           c("t-value", "-4.0120", ""),
+                           #c("","",""),
+                           c("LRM, Social mobility", "", "26.3578$\\dagger$"),
+                           c("  standard error", "", "(6.9230)"),
+                           c("  t-value", "", "3.8073"),
+                           #c("","",""),
+                           c("LRM, Home ownership", "2.4165$\\dagger$",
+                             "2.0295$\\dagger$"),
+                           c("  standard error", "(.4556)", "(.4571)"),
+                           c("  t-value", "5.3041", "4.4403"),
+                           #c("","",""),
+                           c("LRM, Policy mood", ".2394", ".3111"),
+                           c("  standard error", "(.1750)", "(.1791)"),
+                           c("  t-value", "1.3681", "1.7370"),
+                           #c("","",""),
+                           c("LRM, Index of consumer sentiment",
+                             ".2527$\\dagger$", ".2258$\\dagger$"),
+                           c("  standard error", "(.0578)", "(.0560)"),
+                           c("  t-value", "4.3723", "3.7635"),
+                           c("","","")))
+
+
+```
+
+```{r echo = FALSE, results = "asis", warning=FALSE, fig.align="center", fig.width=7, fig.height=5}
+
+delta_data <- lag_data %>% 
+  dplyr::select(am_delta) %>% 
+  drop_na()
+  
+am_delta_dist <- delta_data %>% 
+  ggplot(aes(x = am_delta)) +
+  geom_histogram(aes(y = ..density..), color = "white", bins = 30) +
+  stat_function(fun = dnorm, args = list(mean = mean(delta_data$am_delta), sd = sd(delta_data$am_delta)), position = "identity", color = "limegreen") +
+  theme_classic() +
+  # 
+  # scale_y_continuous(breaks = seq(from = 0, to = 4, by = .5),
+  #                    limits = c(0, 4)) +
+  # scale_x_continuous(breaks = seq(from = 1973, to = 2018, by = 3),
+  #                    limits = c(1973, 2019),
+  #                    labels = seq(from = 1973, to = 2018, by = 3)) +
+
+  theme(axis.line = element_line(color = "grey85"),
+        axis.ticks = element_line(color = "grey85"),
+        axis.ticks.length = unit(-3, "pt"),
+        axis.text.x = element_text(margin = margin(t = 15, "pt"),
+                                   family = "Century"),
+        axis.text.y = element_text(margin = margin(r = 5, "pt"),
+                                   family = "Century"),
+        axis.title.x = element_text(family = "Century"),
+        axis.title.y = element_text(family = "Century"),
+        plot.title = element_text(face = "bold",
+                                  size = 14,
+                                  family = "Century")) +
+  
+  # ylim(0, 70) +
+  # xlim(1973, 2019) + 
+
+  labs(x = "Change in American Dream (between quarters)",
+       y = "Frequency",
+       title = "Figure 4: Distribution of Change in Belief in American Dream")
+
+
+am_delta_dist
+
+```
+
+
+```{r fig 2 data, echo = FALSE, results="asis"}
+
+mod1_coefs <- as.data.frame(mod1$coefficients) %>% 
+  rownames_to_column("VALUE") %>% 
+  pivot_wider(names_from = VALUE, values_from = "mod1$coefficients")
+
+
+mod2_coefs <- as.data.frame(mod2$coefficients) %>% 
+  rownames_to_column("VALUE") %>% 
+  pivot_wider(names_from = VALUE, values_from = "mod2$coefficients")
+
+
+tiblet <- tibble(t = c(0:5),
+       gini = NA,
+       soc = NA,
+       home = NA,
+       ics = NA)
+
+#Variable Responsiveness over lagged periods
+
+tiblet$gini[1] <- mod1_coefs$gini_delta/100
+tiblet$gini[2] <- ((gini_lrm_1/100 - tiblet$gini[1]) * -(mod1_coefs$am_lag))
+tiblet$gini[3] <- ((gini_lrm_1/100 - tiblet$gini[1] - tiblet$gini[2]) * -(mod1_coefs$am_lag))
+tiblet$gini[4] <- ((gini_lrm_1/100 - tiblet$gini[1] - tiblet$gini[2] - tiblet$gini[3]) * -(mod1_coefs$am_lag))
+tiblet$gini[5] <- ((gini_lrm_1/100 - tiblet$gini[1] - tiblet$gini[2] - tiblet$gini[3] - tiblet$gini[4]) * -(mod1_coefs$am_lag))
+tiblet$gini[6] <- ((gini_lrm_1/100 - tiblet$gini[1] - tiblet$gini[2] - tiblet$gini[3] - tiblet$gini[4] - tiblet$gini[5]) * -(mod1_coefs$am_lag))
+
+tiblet$soc[1] <- mod2_coefs$soc_delta/100
+tiblet$soc[2] <- ((soc_lrm_2/100 - tiblet$soc[1]) * -(mod2_coefs$am_lag))
+tiblet$soc[3] <- ((soc_lrm_2/100 - tiblet$soc[1] - tiblet$soc[2]) * -(mod2_coefs$am_lag))
+tiblet$soc[4] <- ((soc_lrm_2/100 - tiblet$soc[1] - tiblet$soc[2] - tiblet$soc[3]) * -(mod2_coefs$am_lag))
+tiblet$soc[5] <- ((soc_lrm_2/100 - tiblet$soc[1] - tiblet$soc[2] - tiblet$soc[3] - tiblet$soc[4]) * -(mod2_coefs$am_lag))
+tiblet$soc[6] <- ((soc_lrm_2/100 - tiblet$soc[1] - tiblet$soc[2] - tiblet$soc[3] - tiblet$soc[4] - tiblet$soc[5]) * -(mod2_coefs$am_lag))
+
+tiblet$home[1] <- mod1_coefs$home_delta
+tiblet$home[2] <- ((home_lrm_1 - tiblet$home[1]) * -(mod1_coefs$am_lag))
+tiblet$home[3] <- ((home_lrm_1 - tiblet$home[1] - tiblet$home[2]) * -(mod1_coefs$am_lag))
+tiblet$home[4] <- ((home_lrm_1 - tiblet$home[1] - tiblet$home[2] - tiblet$home[3]) * -(mod1_coefs$am_lag))
+tiblet$home[5] <- ((home_lrm_1 - tiblet$home[1] - tiblet$home[2] - tiblet$home[3] - tiblet$home[4]) * -(mod1_coefs$am_lag))
+tiblet$home[6] <- ((home_lrm_1 - tiblet$home[1] - tiblet$home[2] - tiblet$home[3] - tiblet$home[4] - tiblet$home[5]) * -(mod1_coefs$am_lag))
+
+tiblet$ics[1] <- mod1_coefs$ics_delta
+tiblet$ics[2] <- ((ics_lrm_1 - tiblet$ics[1]) * -(mod1_coefs$am_lag))
+tiblet$ics[3] <- ((ics_lrm_1 - tiblet$ics[1] - tiblet$ics[2]) * -(mod1_coefs$am_lag))
+tiblet$ics[4] <- ((ics_lrm_1 - tiblet$ics[1] - tiblet$ics[2] - tiblet$ics[3]) * -(mod1_coefs$am_lag))
+tiblet$ics[5] <- ((ics_lrm_1 - tiblet$ics[1] - tiblet$ics[2] - tiblet$ics[3] - tiblet$ics[4]) * -(mod1_coefs$am_lag))
+tiblet$ics[6] <- ((ics_lrm_1 - tiblet$ics[1] - tiblet$ics[2] - tiblet$ics[3] - tiblet$ics[4] - tiblet$ics[5]) * -(mod1_coefs$am_lag))
+```
+
+ 
+```{r fig 2, results= "asis", echo = FALSE, fig.align="center", fig.width=7, fig.height=5}
+
+gini_plot <- tiblet %>% 
+  ggplot() +
+  geom_line(aes(y = gini, x = t), color = "darkgray") +
+  geom_abline(intercept = 0, slope = 0) +
+  labs(y = "Effect on Y",
+       x = "Time Period", 
+       title = "Gini Coefficient") +
+  scale_y_continuous(breaks = seq(from = -4.00, to = 2.00, by = 1.00),
+                     limits = c(-4.00, 2.00),
+                     labels = scales::comma) +
+  theme_classic() +
+  theme(axis.line = element_line(color = "black"),
+        axis.ticks = element_line(color = "black"),
+        axis.text.x = element_text(family = "Century",
+                                   size = 8),
+        axis.text.y = element_text(family = "Century",
+                                   size = 7),
+        axis.title.x = element_text(family = "Century",
+                                    size = 8),
+        axis.title.y = element_text(family = "Century",
+                                    size = 8),
+        plot.title = element_text(hjust = .5,
+                                  size = 8,
+                                  family = "Century"))
+
+soc_plot <- tiblet %>% 
+  ggplot() +
+  geom_line(aes(y = soc, x = t), color = "darkgray") +
+  geom_abline(intercept = 0, slope = 0) +
+  theme_classic() +
+  theme(axis.line = element_line(color = "black"),
+        axis.ticks = element_line(color = "black"),
+        axis.text.x = element_text(family = "Century",
+                                   size = 8),
+        axis.text.y = element_text(family = "Century",
+                                   size = 7),
+        axis.title.x = element_text(family = "Century",
+                                    size = 8),
+        axis.title.y = element_text(family = "Century",
+                                    size = 8),
+        plot.title = element_text(hjust = .5,
+                                  size = 8,
+                                  family = "Century")) +
+  
+  scale_y_continuous(breaks = seq(from = -.40, to = 1.4, by = .20),
+                     limits = c(-.40, 1.4),
+                     labels = scales::comma) +
+  
+  labs(title = "Social mobility",
+       x = "Time period",
+       y = "Effect on Y")
+
+home_plot <- tiblet %>% 
+  ggplot() +
+  geom_line(aes(y = home, x = t), color = "darkgray") +
+  geom_abline(intercept = 0, slope = 0) +
+  theme_classic() +
+  theme(axis.line = element_line(color = "black"),
+        axis.ticks = element_line(color = "black"),
+        axis.text.x = element_text(family = "Century",
+                                   size = 8),
+        axis.text.y = element_text(family = "Century",
+                                   size = 8),
+        axis.title.x = element_text(family = "Century",
+                                    size = 8),
+        axis.title.y = element_text(family = "Century",
+                                    size = 8),
+        plot.title = element_text(hjust = .5,
+                                  size = 8,
+                                  family = "Century")) +
+  
+  scale_y_continuous(breaks = seq(from = -.20, to = 1.0, by = .20),
+                     limits = c(-.20, 1.0),
+                     labels = scales::comma) +
+  
+  labs(title = "Home ownership",
+       x = "Time period",
+       y = "Effect on Y")
+
+ics_plot <- tiblet %>% 
+  ggplot() +
+  geom_line(aes(y = ics, x = t), color = "darkgray") +
+  geom_abline(intercept = 0, slope = 0) +
+  theme_classic() +
+  theme(axis.line = element_line(color = "black"),
+        axis.ticks = element_line(color = "black"),
+        axis.text.x = element_text(family = "Century",
+                                   size = 8),
+        axis.text.y = element_text(family = "Century",
+                                   size = 8),
+        axis.title.x = element_text(family = "Century",
+                                    size = 8),
+        axis.title.y = element_text(family = "Century",
+                                    size = 8),
+        plot.title = element_text(hjust = .5,
+                                  size = 8,
+                                  family = "Century")) +
+  
+   scale_y_continuous(breaks = seq(from = -.04, to = .12, by = .02),
+                     limits = c(-.04, .12)) +
+  
+  labs(title = "Index of Consumer Sentiment",
+       x = "Time period",
+       y = "Effect on Y")
+
+
+title <- text_grob("Figure 2: Estimated Lag Distributions for Belief in the American Dream",
+          size = 10,
+          family = "Times New Roman",
+          face = "bold")
+
+plot_title <- as_ggplot(title) +
+  theme(plot.margin = margin(0,3,0,0, "cm"))
+
+
+plots <- ggarrange(gini_plot, soc_plot, home_plot, ics_plot)  
+
+grid.arrange(plots, 
+             top = "Figure 5: Estimated Lag Distributions for Belief in the American Dream")
+
+# annotate_figure(plots,
+#                 top = text_grob("Figure 2: Estimated Lag Distributions for Belief in the American Dream",
+#                                 size = 10, face = "bold", family = "Times New Roman"))
+
+```
+\newpage
+## Bibliography (in order of reference)
+
+Wolak, Jennifer, & Peterson, David A. M. (2020). The Dynamic American Dream. *American Journal of Political Science*, 64(4), 968-981.
+
+Bannerjee, Anindya, Juan Dolado, JohnW. Galbraith, and David F. Hendry. 1993.*Integration, Error Correction, and the Econometric Analysis of Non-Stationary Data*. Oxford: Oxford University Press.
+
+De Boef, Suzanna, and Luke Keele. 2008. “Taking Time Seriously.” *American Journal of Political Science* 52(1): 184–200.
+
+Nieman, Mark David, & Peterson, David A. M. (2019).
+
