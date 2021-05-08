@@ -1,0 +1,36 @@
+Instructions for creating the series of belief in the American Dream
+--------------------------------------------------------------------
+
+You will need James Stimson's software, WCalc.  
+- Download the software here: http://stimson.web.unc.edu/software/
+- Direct link for Wcalc 6.1 for Windows: http://stimson.web.unc.edu/files/2017/05/Wcalc6.exe_.zip
+- Documentation for using Wcalc is available here: http://stimson.web.unc.edu/files/2015/08/Wcalc6.pdf
+- Copies also included in the Dataverse
+
+Open Wcalc.exe.
+
+Within Wcalc, open the file “american dream to 2018 component items for wcalc.dta”
+
+On the next screen, select “Quarterly.”
+
+On the following screen, accept the dates as entered.  (1973q1 to 2019q1 used to produce measure in the manuscript.)  Keep the default choices of extracting one dimension and smoothing on raw data series.  (Eccentric calendar not selected.)  
+
+Click OK.
+
+--------------------------------
+
+Two files are generated:
+a .csv file of the quarterly data
+a .log file summarizing fit of components to resulting series.
+
+Included in the replication data as
+american dream to 2018 quaterly wcalc output.csv
+american dream to 2018 quarterly wcalc summary.txt
+
+
+--------------------------------
+
+Full description of the component questions is included in the Supplemental Appendix as well as the sources of the items.
+
+Key to connect question wordings with variable names is provided in:
+"key of component items in American Dream series.csv"
