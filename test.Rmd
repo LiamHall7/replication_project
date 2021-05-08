@@ -5,13 +5,16 @@ date: "`r format(Sys.time(), '%Y %B %d')`"
 output:
   pdf_document: default
   html_document: default
+header-includes:
+    - \usepackage{setspace}\doublespacing
+    - \usepackage{float}
+indent: true
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 #knitr::opts_chunk$set(fig.pos = "!H", out.extra = "")
 
-library(readr)
 library(tidyverse)
 library(readr)
 library(arm)
@@ -23,7 +26,6 @@ library(ggthemes)
 library(extrafont)
 library(stringr)
 library(janitor)
-library(car)
 library(stargazer)
 library(dynamac)
 library(tseries)
@@ -46,16 +48,24 @@ library(kableExtra)
 
 ```
 
-## Introduction
-The original paper *The Dynamic American Dream*, coauthored by Jennifer Wolak and David A.M. Peterson (2020), was published in the *American Journal of Political Science*^[The replication data was available through the Harvard dataverse. You can access the files [here](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/QTMOVG).] The paper analyzes the behavior of belief in the American dream over time, as it relates to economic inequality, social mobility, home ownership, public policy mood (that is, the public demand for liberal policy outcomes), consumer confidence, and the presence of U.S. midterm and presidential elections. Because the variables include both stationary and non-stationary time series, the authors opted to use a generalized error correction model (GECM) (Bannerjee et al. 1993; DeBoef and Keele 2008). Because of the high correlation between social mobility and economic inequality, the data are split into two models, one with the gini coefficient variable and one with the social mobility variable. Extending the findings from the GECM models, the paper also looks at which non-stationary, explanatory variables have a long run relationship with belief in the American dream, as reflected by long run multipliers and their respective t-values. Ultimately, the authors found positive correlations between belief in the American dream and social mobility, home ownership, consumer confidence (measured by index of consumer sentiment),.
+## Introduction\
+\indent The original paper *The Dynamic American Dream* was coauthored by Jennifer Wolak and David A.M. Peterson (2020) and published in the *American Journal of Political Science*^[The replication data was available through the Harvard dataverse. You can access the files [here](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/QTMOVG).]. The paper analyzes behavior of belief in the American dream over time, and as it relates to economic inequality, social mobility, home ownership, public policy mood (that is, the public demand for liberal policy outcomes), consumer confidence, and the presence of U.S. midterm and presidential elections. The condition of the American Dream has long been seen as a barometer of America's perceived condition - of optimism in America's future - and American politicians on both sides of the aisle have historically appealed to the American Dream when discussing their vision of the nation. When times are good, the American Dream is alive as ever. When times are tough, politicians insist that change must happen, that we "need to write a new chapter in American Dream" and "bring it back bigger and stronger and more powerfully than ever before." Wolak and Peterson take a more objective approach in assessing the dynamics of the American Dream. Instead of relying on abstract terms, the authors aggregate responses from quarterly surveys of American citizens from 1973 to 2018 to quantify the percentage of Americans who believe the American Dream is achievable, exploring its dynamics relative to temporal economic, social, and political conditions. Further, the authors explore the responsiveness of belief in the American Dream to these short-term variables.\
 
+## Model Replications
 
-My replication of the models yielded the same numerical values and, therefore, the same interpretive conclusions. Rather than re-writing the conclusions from the original paper, I elaborate on why the original paper was designed as it was and extend the original model for new findings. I bootstraped the long run multiplier standard errors,   , and made the figure 2 bar plots into more intuitive line plots.
+Because the model's variables - belief in the American dream, economic inequality, social mobility, home ownership, public policy mood (that is, the public demand for liberal policy outcomes), consumer confidence, and the presence of U.S. midterm and presidential elections - include both stationary and non-stationary cointegrated time series, the authors employed a generalized error correction model (GECM) that is able to effectively combine these different variables (Bannerjee et al. 1993; DeBoef and Keele 2008). Because of the high correlation between social mobility and economic inequality, the authors split the data into two models, one with the gini coefficient variable and one with the social mobility variable, but which are otherwise identical. The GECM model, like the auto-regressive distributed lag model, uses the equation: $$\Delta y_{t} = \alpha_{0} + \alpha_{1}y_{t-1} + \beta_{0}\Delta x_{t} + \epsilon_{t}$$ Extending the findings from the GECM models, the original paper also looks at the extent to which the non-stationary explanatory variables have a long run relationship with belief in the American dream, as reflected by long run multipliers and their respective t-values. Ultimately, the authors found statistically significant, positive correlations between belief in the American dream and social mobility, home ownership, and consumer confidence (measured by index of consumer sentiment) and a statistically significant, negative relationship between belief in the American Dream and economic inequality. Intuitively, these findings make sense, because as the economy becomes more lopsided and social mobility wanes, Americans are naturally less optimistic about opportunity in America. Interestingly, the authors also find a positive relationship between election cycles and belief in the American dream, suggesting that non-policy political influences increase Americans' national optimism, too.
 
-The GECM model requires that non-stationary variables be lagged. There are numerous ways of testing stationarity - the ADF Test, the Dickey Fuller test, and the Phillips Perron Test to name a few. The original authors use 
+In this replication, I translate the originally-Latex paper into R and reconstruct the plots and models of the original authors in their entirety. Because variable stationarity affects the GECM model structure, I explore and confirm the stationarity of the variables used in the original GECM model to confirm the model was properly constructed. I also bootstrap the model errors and display the distribution of belief changes in the American dream between time periods (that is, I show how much belief in the American dream changes between time periods).
+
+My replication of the models ultimately yielded the same numerical values and, therefore, the same conclusions as the original paper. I explain the different calculations and interpret some of model outputs with some visual aids I constructed from the data. 
+
+The model reconstruction was relatively straightforward. Using the lag function, I created the lag variables and then took the difference between the original and lag variables in order to get the delta variables for the GECM model input. Because these GECM variables were all calculated manually, I was able to use the lm() function, as opposed to some of the GECM specific functions within the ecm and ARDL packages. The linear regression calculated the coefficient, standard error, and p-value statistics that are displayed in Table 1. Extending from the original models, I also bootstrapped the variables' standard errors and output them in table 2. 
+
+The long run multipliers were calculated with the equation $LRM_{x} = - \beta_{x}/\alpha_{1}$, with inputs taken from the GECM model outputs. There are two primary ways to calculate the standard errors of long run multipliers: the delta method and the Bewley transformation, which yield asymptotically accurate values (Nieman & Petersen, 2019). Because the two methods are roughly equal in accuracy, I used the delta method, which used the model covariance and the LRM value to yield the LRM standard errors. The respective LRM t-values were simply the ratio of the LRM to the LRM's standard error ($LRM_{x}/\epsilon_{_{LRM_x}}$). These methods yielded the same results as the original paper. 
 
 
 ```{r cleaning and adding gecm variables, warning = FALSE, echo = FALSE}
+
 am_dream_data <- read_dta("raw_data/belief in the american dream dataset.dta")
 
 #code for the first graph
@@ -89,10 +99,7 @@ lag_data <- amer_dream %>%
 ```
 
 
-```{r model and lrm values, results="asis", echo = FALSE}
-
-options(xtable.comment = FALSE)
-
+```{r models, results="asis", echo = FALSE}
 mod1 <- lm(am_delta ~ am_lag + gini_delta + gini_lag + home_delta + home_lag + mood_delta + mood_lag + ics_delta + ics_lag + midterm + prezcamp,
            data = lag_data)
 
@@ -256,338 +263,7 @@ mod2 <- lm(am_delta ~ am_lag + soc_delta + soc_lag + home_delta + home_lag + moo
 # mid_l_mean <- mean(apply(gini_l.mat, 1, mean))
 # 
 # prez_d_mean <- mean(apply(gini_d.mat, 1, mean))
-
-boot_function <- function(data, i, formula){
-  d <- data[i, ]
-  obj <- lm(formula, d)
-  coef(obj)
-  #coefs <- summary(obj)$coefficients
-  #coefs[, 1] # the second row is the standard errors
-}
-
-set.seed(6)
-
-se_booted_1 <- boot(lag_data, boot_function, R = 1000, 
-     formula = am_delta ~ am_lag + gini_delta + gini_lag + home_delta +
-       home_lag + mood_delta + mood_lag + ics_delta + ics_lag + midterm +
-       prezcamp)
-
-se_boot_1 <- as.data.frame(apply(se_booted_1$t, 2, sd))
-se_orig_1 <- summary(mod1)$coef[,2]
-
-se_comp_mod1 <- as.data.frame(cbind(se_boot_1, se_orig_1)) %>% 
-  clean_names() %>% 
-  rename(original = se_orig_1,
-         bootstrapped = "apply_se_booted_1_t_2_sd") %>% 
-  mutate(variable = rownames(.)) %>% 
-  dplyr::select(original, bootstrapped) %>% 
-  mutate(pct_diff = (original-bootstrapped)/original)
-
-
-set.seed(6)
-
-se_booted_2 <- boot(lag_data, boot_function, R = 1000, 
-     formula = am_delta ~ am_lag + soc_delta + soc_lag + home_delta +
-       home_lag + mood_delta + mood_lag + ics_delta + ics_lag + midterm +
-       prezcamp)
-
-se_boot_2 <- as.data.frame(apply(se_booted_2$t, 2, sd))
-se_orig_2 <- summary(mod2)$coef[,2]
-
-se_comp_mod2 <- as.data.frame(cbind(se_boot_2, se_orig_2)) %>% 
-  clean_names() %>%
-  rename(original = se_orig_2,
-         bootstrap = "apply_se_booted_2_t_2_sd") %>% 
-  mutate(variable = rownames(.)) %>% 
-  dplyr::select(original, bootstrap) %>% 
-  mutate(pct_diff = (original-bootstrap)/original)
-
- print(xtable(se_comp_mod1, caption = "Model One Standard Error vs. Bootstrapped Standard Errors"),
-       caption.placement = "top")
- 
- print(xtable(se_comp_mod2, caption = "Model Two Standard Error vs. Bootstrapped Standard Errors"),
-       caption.placement = "top")
-
-
 ```
-
-
-\newpage
-
-```{r stationarity, include = FALSE, warning=FALSE}
-options(xtable.comment = FALSE)
-
-mod1_data <- lag_data %>% 
-  dplyr::select(year_decimal, amdream, ginihq, homeown, mood, ics, midterm, prezcamp) %>% 
-  drop_na()
-
-mod2_data <- lag_data %>% 
-  dplyr::select(year_decimal, amdream, socmobq, homeown, mood, ics, midterm, prezcamp) %>% 
-  drop_na()
-
-am_ts <- ts(mod1_data$amdream, start = 1973, frequency = 4)
-
-gini_ts <- ts(mod1_data$ginihq, start = 1973, frequency = 4)
-
-soc_ts <-  ts(mod2_data$socmobq, start = 1973, frequency = 4)
-
-home_ts <- ts(mod1_data$homeown, start = 1973, frequency = 4)
-
-mood_ts <- ts(mod1_data$mood, start = 1973, frequency = 4)
-
-ics_ts <- ts(mod1_data$ics, start = 1973, frequency = 4)
-
-midterm_ts <- ts(mod1_data$midterm, start = 1973, frequency = 4)
-
-prezcamp_ts <- ts(mod1_data$prezcamp, start = 1973, frequency = 4)
-
-
-#check for stationarity
-
-#stationary means that it does not change with time - its not cyclical
-
-pp_am <- as.data.frame(pp.test(am_ts))
-#non-stationary
-
-pp_g <- as.data.frame(pp.test(gini_ts))
-#non-stationary
-
-pp_s <- as.data.frame(pp.test(soc_ts))
-#non-stationary
-
-pp_h <- as.data.frame(pp.test(home_ts))
-#non-stationary
-
-pp_m <- as.data.frame(pp.test(mood_ts))
-#non-stationary
-
-pp_i <- as.data.frame(pp.test(ics_ts))
-#non-stationary
-
-pp_mid <- as.data.frame(pp.test(midterm_ts))
-#stationary
-
-pp_prez <- as.data.frame(pp.test(prezcamp_ts)) 
-#stationary
-```
-
-
-```{r stationarity table, echo = FALSE, warning=FALSE, results="asis"}
-pp_data <- rbind(pp_am, pp_g, pp_s, pp_h, pp_m, pp_i, pp_mid, pp_prez) %>% 
-  mutate(variable = c("American Dream",
-                      "American Dream",
-                      "American Dream",
-                      "Gini",
-                      "Gini",
-                      "Gini",
-                      "Social Mobility",
-                      "Social Mobility",
-                      "Social Mobility",
-                      "Home Ownership",
-                      "Home Ownership",
-                      "Home Ownership",
-                      "Policy Mood",
-                      "Policy Mood",
-                      "Policy Mood",
-                      "Consumer Confidence",
-                      "Consumer Confidence",
-                      "Consumer Confidence",
-                      "Midterm Election",
-                      "Midterm Election",
-                      "Midterm Election",
-                      "Presidential Election",
-                      "Presidential Election",
-                      "Presidential Election")) %>% 
-  
-  mutate(type = c("Type 1: no drift, no trend",
-                  "Type 2: with drift, no trend",
-                  "Type 3: with drift, and trend",
-                  "Type 1: no drift, no trend",
-                  "Type 2: with drift, no trend",
-                  "Type 3: with drift, and trend",
-                  "Type 1: no drift, no trend",
-                  "Type 2: with drift, no trend",
-                  "Type 3: with drift, and trend",
-                  "Type 1: no drift, no trend",
-                  "Type 2: with drift, no trend",
-                  "Type 3: with drift, and trend",
-                  "Type 1: no drift, no trend",
-                  "Type 2: with drift, no trend",
-                  "Type 3: with drift, and trend",
-                  "Type 1: no drift, no trend",
-                  "Type 2: with drift, no trend",
-                  "Type 3: with drift, and trend",
-                  "Type 1: no drift, no trend",
-                  "Type 2: with drift, no trend",
-                  "Type 3: with drift, and trend",
-                  "Type 1: no drift, no trend",
-                  "Type 2: with drift, no trend",
-                  "Type 3: with drift, and trend")) %>% 
-  dplyr::select(type, lag, Z_rho, p.value)
-
-row.names(pp_data) <- NULL
-
-kable(pp_data, caption = "Variable Stationarities",
-      col.names = c("Variable", "Lag", "Z_rho", "p-value"),
-      format = "latex",
-      booktabs = T) %>%
-    kable_styling(latex_options = "striped") %>%
-    group_rows("American Dream", 1, 3) %>%
-    group_rows("Gini Coefficient", 4, 6) %>%
-    group_rows("Social Mobility", 7, 9) %>%
-    group_rows("Home Ownership", 10, 12) %>% 
-    group_rows("Policy Mood", 13, 15) %>%
-    group_rows("Consumer Confidence", 16, 18) %>% 
-    group_rows("Midterm Election", 19, 21) %>%
-    group_rows("Presidential Election", 22, 24) 
-
-```
-
-\newpage
-
-```{r stationary tables, results = "asis", include=FALSE, warning = FALSE}
-
-# print(xtable(pp_am, digits = 4, caption = "American Dream Stationarity"),
-#       caption.placement = "top")
-# 
-# print(xtable(pp_g, digits = 4, caption = "Gini Coefficient Stationarity"), 
-#       caption.placement = 'top')
-# 
-# print(xtable(pp_h, digits = 4, caption = "Home Ownership Rate Stationarity"), 
-#       caption.placement = 'top')
-# 
-# print(xtable(pp_m, digits = 4, caption = "Public Policy Mood Stationarity"), 
-#       caption.placement = 'top')
-# 
-# print(xtable(pp_i, digits = 4, caption = "Consumer Confidence Stationarity"), 
-#       caption.placement = 'top')
-# 
-# print(xtable(pp_mid, digits = 4, caption = "Midterm Election Stationarity"), 
-#       caption.placement = 'top')
-# 
-# print(xtable(pp_prez, digits = 4, caption = "Presidential Election Stationarity"), 
-#       caption.placement = 'top')
-# 
-# kable(, format = "latex", caption = "Group Rows", booktabs = T) %>%
-#     kable_styling() %>%
-#     group_rows("Group 1", 4, 7) %>%
-#     group_rows("Group 2", 8, 10)
-
-```
-\newpage
-
-```{r stationarity plots pt 1, echo = FALSE, warning=FALSE, fig.align="center", fig.width=7, fig.height=5}
-
-am_plot <- lag_data %>% 
-  ggplot(aes(year_decimal, amdream)) + 
-  geom_line() +
-  theme_classic() +
-  scale_y_continuous(breaks = seq(from = 0, to = 70, by = 10),
-                     limits = c(0, 70)) +
-  scale_x_continuous(breaks = seq(from = 1973, to = 2018, by = 3),
-                     limits = c(1973, 2019),
-                     labels = seq(from = 1973, to = 2018, by = 3)) +
-
-  #because labels vector has to be same length as breaks vector, it wasn't
-  #possible to make three ticks on the x axis for every label
-  
-  theme(axis.line = element_line(color = "grey85"),
-        axis.ticks = element_line(color = "grey85"),
-        axis.ticks.length = unit(-3, "pt"),
-        axis.text.x = element_text(margin = margin(t = 15, "pt"),
-                                   family = "Century"),
-        axis.text.y = element_text(margin = margin(r = 10, "pt"),
-                                   family = "Century"),
-        
-        axis.title.x = element_text(family = "Century"),
-        axis.title.y = element_text(family = "Century"),
-        
-        plot.title = element_text(face = "bold",
-                                  size = 14,
-                                  family = "Century")) +
-  
-  labs(y = "Public Belief in the American Dream",
-       x = "Time (year by quarter)",
-       title = "Figure 1: The Dynamics of Public Belief in the American Dream")
-
-am_plot
-```
-
-
-```{r stationarity plots pt 2, echo = FALSE, warning=FALSE, out.width=c('50%', '50%'), fig.show='hold'}
-
-gini_plot <- lag_data %>% 
-  dplyr::select(year_decimal, ginihq) %>% 
-  drop_na() %>% 
-  ggplot(aes(year_decimal, ginihq)) + 
-  geom_line() +
-  theme_classic() +
-  
-  scale_y_continuous(breaks = seq(from = .37, to = .5, by = .01),
-                     limits = c(.37, .5)) +
-  scale_x_continuous(breaks = seq(from = 1973, to = 2018, by = 3),
-                     limits = c(1973, 2019),
-                     labels = seq(from = 1973, to = 2018, by = 3)) +
-
-  theme(axis.line = element_line(color = "grey85"),
-        axis.ticks = element_line(color = "grey85"),
-        axis.ticks.length = unit(-3, "pt"),
-        axis.text.x = element_text(margin = margin(t = 15, "pt"),
-                                   family = "Century"),
-        axis.text.y = element_text(margin = margin(r = 5, "pt"),
-                                   family = "Century"),
-        axis.title.x = element_text(family = "Century"),
-        axis.title.y = element_text(family = "Century"),
-        plot.title = element_text(face = "bold",
-                                  size = 14,
-                                  family = "Century")) +
-  
-  # ylim(0, 70) +
-  # xlim(1973, 2019) + 
-
-  labs(x = "Year (by quarter)",
-       y = "Economic Inequality (gini coefficient)",
-       title = "Figure 2: The Dynamics of Economic Inequality in America")
-
-gini_plot
-
-prez_plot <- lag_data %>% 
-  dplyr::select(year_decimal, prezcamp) %>% 
-  drop_na() %>% 
-  ggplot(aes(year_decimal, prezcamp)) + 
-  geom_line() +
-  theme_classic() +
-  
-  scale_y_continuous(breaks = seq(from = 0, to = 4, by = .5),
-                     limits = c(0, 4)) +
-  scale_x_continuous(breaks = seq(from = 1973, to = 2018, by = 3),
-                     limits = c(1973, 2019),
-                     labels = seq(from = 1973, to = 2018, by = 3)) +
-    
-  # ylim(0, 70) +
-  # xlim(1973, 2019) + 
-
-  labs(x = "Year (by quarter)",
-       y = "",
-       title = "Figure 3: Behavior of American Presidential Campaign Cycles") +
-
-  theme(axis.line = element_line(color = "grey85"),
-        axis.ticks = element_line(color = "grey85"),
-        axis.ticks.length = unit(-3, "pt"),
-        axis.text.x = element_text(margin = margin(t = 15, "pt"),
-                                   family = "Century"),
-        axis.text.y = element_text(margin = margin(r = 5, "pt"),
-                                   family = "Century"),
-        axis.title.x = element_text(family = "Century"),
-        axis.title.y = element_text(family = "Century"),
-        plot.title = element_text(face = "bold",
-                                  size = 14,
-                                  family = "Century"))
-
-prez_plot
-
-```
-
 
 ```{r lrm se, echo = FALSE}
 
@@ -710,24 +386,311 @@ stargazer(mod1, mod2,
 
 ```
 
-```{r echo = FALSE, results = "asis", warning=FALSE, fig.align="center", fig.width=7, fig.height=5}
+## Interpretations
 
-delta_data <- lag_data %>% 
-  dplyr::select(am_delta) %>% 
-  drop_na()
+Looking at top half of the model outputs, we can see a lag home ownership coefficient for the first model of .932 and a delta coefficient of .877. This suggests that a 1% increase in the home ownership rate, all else equal, will increase belief in the American Dream by 2.4 percent. Looking at the LRM values, the we can interpret that, for example, an increase of 0.00525 in the gini coefficient (which was the largest between quarters) would lead to a .57 percent decline in belief in the American dream.
+
+As mentioned earlier, treating the respective stationarities of the different variables properly is crucial in yielding accurate results from the GECM model. However, as Webb, Linn, and Lebo (2019, 2020) have explored and documented, the many different tests for stationarity are low-powered. Instead of relying on these tests, Wolak and Peterson judged the accuracy of their LRM values by relying on the methods suggested by Webb, Linn, and Lebo: For the given model with k = 2 and n = 150, t-values above the upper bound of |3.56| were deemed statistically significant with t-values below |3.56| deemed insignificant. I applied the same reasoning in my own analysis and reached the same conclusions; that the gini coefficient, social mobility, home ownership rates, and consumer confidence all had significant long term relationships with belief in the American dream. However, extending from the original model, I also measured the stationarity of variables by the Phillips-Perron Test, documented in Table 4. I also visualize and compare the stationarity of two different variables, gini coefficient and presidential campaign cycle. 
+
+## Extensions
+
+The first of my extensions was to bootstrap the standard errors and compare them to the standard errors output by the two models. Table 2 displays the comparison between the different calculated standard errors. This extension does not help develop greater understanding of the original paper, but was a different way of calculating the standard errors than the original paper used. 
+
+The second, and more notable, extension was to examine the stationarity of the different variables. Table 3 displays each variables's results for the Phillips-Perron Stationarity test. As mentioned earlier, the Phillips-Perron test as well as the other stationarity tests yield varyingly accurate stationarity assessments. The purpose of including the Phillips-Perron test output in this case was to compare it to the different variables' plots and their residuals, which is graphed in Figure 2, with the hope that pairing the test conclusions with the visuals might help determine the stationarity of the variable.
+
+[explain seocnd extentions]
+
+The third extension I did was to display the distribution of changes in American dream belief between time periods (quarter years). Because small oscillations around a mean would suggest that belief in the American dream is not truly correlated with the variables as much as the model might suggest. I found that the distribution of change in belief in the American dream between quarters was roughly similar to a normal distribution with its standard deviation of 3.660072 and average value of -.0202787, suggesting that the variable's variance would align with the model's findings.
+
+
+
+```{r bootstrapping, results="asis", echo = FALSE}
+
+options(xtable.comment = FALSE)
+
+boot_function <- function(data, i, formula){
+  d <- data[i, ]
+  obj <- lm(formula, d)
+  coef(obj)
   
-am_delta_dist <- delta_data %>% 
-  ggplot(aes(x = am_delta)) +
-  geom_histogram(aes(y = ..density..), color = "white", bins = 30) +
-  stat_function(fun = dnorm, args = list(mean = mean(delta_data$am_delta), sd = sd(delta_data$am_delta)), position = "identity", color = "limegreen") +
+  #coefs <- summary(obj)$coefficients
+  #coefs[, 1] # the second row is the standard errors
+}
+
+set.seed(6)
+
+#model 1 bootstrapped errors
+
+se_booted_1 <- boot(lag_data, boot_function, R = 1000, 
+     formula = am_delta ~ am_lag + gini_delta + gini_lag + home_delta +
+       home_lag + mood_delta + mood_lag + ics_delta + ics_lag + midterm +
+       prezcamp)
+
+se_boot_1 <- as.data.frame(apply(se_booted_1$t, 2, sd))
+se_orig_1 <- summary(mod1)$coef[,2]
+
+se_comp_mod1 <- as.data.frame(cbind(se_boot_1, se_orig_1)) %>% 
+  clean_names() %>% 
+  rename(original = se_orig_1,
+         bootstrapped = "apply_se_booted_1_t_2_sd") %>% 
+  mutate(variable = rownames(.)) %>% 
+  dplyr::select(original, bootstrapped) %>% 
+  mutate(pct_diff = (original-bootstrapped)/original)
+
+
+#model 2 bootstrapped errors
+
+se_booted_2 <- boot(lag_data, boot_function, R = 1000, 
+     formula = am_delta ~ am_lag + soc_delta + soc_lag + home_delta +
+       home_lag + mood_delta + mood_lag + ics_delta + ics_lag + midterm +
+       prezcamp)
+
+se_boot_2 <- as.data.frame(apply(se_booted_2$t, 2, sd))
+se_orig_2 <- summary(mod2)$coef[,2]
+
+se_comp_mod2 <- as.data.frame(cbind(se_boot_2, se_orig_2)) %>% 
+  clean_names() %>%
+  rename(original = se_orig_2,
+         bootstrapped = "apply_se_booted_2_t_2_sd") %>% 
+  mutate(variable = rownames(.)) %>% 
+  dplyr::select(original, bootstrapped) %>% 
+  mutate(pct_diff = (original-bootstrapped)/original)
+
+ print(xtable(se_comp_mod1, caption = "Model One Standard Error vs. Bootstrapped Standard Errors"),
+       caption.placement = "top")
+ 
+ print(xtable(se_comp_mod2, caption = "Model Two Standard Error vs. Bootstrapped Standard Errors"),
+       caption.placement = "top")
+
+
+```
+
+
+\newpage
+
+```{r stationarity, include = FALSE, warning=FALSE}
+options(xtable.comment = FALSE)
+
+mod1_data <- lag_data %>% 
+  dplyr::select(year_decimal, amdream, ginihq, homeown, mood, ics, midterm, prezcamp) %>% 
+  drop_na()
+
+mod2_data <- lag_data %>% 
+  dplyr::select(year_decimal, amdream, socmobq, homeown, mood, ics, midterm, prezcamp) %>% 
+  drop_na()
+
+am_ts <- ts(mod1_data$amdream, start = 1973, frequency = 4)
+
+gini_ts <- ts(mod1_data$ginihq, start = 1973, frequency = 4)
+
+soc_ts <-  ts(mod2_data$socmobq, start = 1973, frequency = 4)
+
+home_ts <- ts(mod1_data$homeown, start = 1973, frequency = 4)
+
+mood_ts <- ts(mod1_data$mood, start = 1973, frequency = 4)
+
+ics_ts <- ts(mod1_data$ics, start = 1973, frequency = 4)
+
+midterm_ts <- ts(mod1_data$midterm, start = 1973, frequency = 4)
+
+prezcamp_ts <- ts(mod1_data$prezcamp, start = 1973, frequency = 4)
+
+
+#check for stationarity
+
+#stationary means that it does not change with time - its not cyclical
+
+pp_am <- as.data.frame(pp.test(am_ts))
+#non-stationary
+
+pp_g <- as.data.frame(pp.test(gini_ts))
+#non-stationary
+
+pp_s <- as.data.frame(pp.test(soc_ts))
+#non-stationary
+
+pp_h <- as.data.frame(pp.test(home_ts))
+#non-stationary
+
+pp_m <- as.data.frame(pp.test(mood_ts))
+#non-stationary
+
+pp_i <- as.data.frame(pp.test(ics_ts))
+#non-stationary
+
+pp_mid <- as.data.frame(pp.test(midterm_ts))
+#stationary
+
+pp_prez <- as.data.frame(pp.test(prezcamp_ts)) 
+#stationary
+```
+
+
+
+```{r stationarity table, echo = FALSE, warning=FALSE, results="asis"}
+
+pp_data <- rbind(pp_am, pp_g, pp_s, pp_h, pp_m, pp_i, pp_mid, pp_prez) %>% 
+  mutate(variable = c("American Dream",
+                      "American Dream",
+                      "American Dream",
+                      "Gini",
+                      "Gini",
+                      "Gini",
+                      "Social Mobility",
+                      "Social Mobility",
+                      "Social Mobility",
+                      "Home Ownership",
+                      "Home Ownership",
+                      "Home Ownership",
+                      "Policy Mood",
+                      "Policy Mood",
+                      "Policy Mood",
+                      "Consumer Confidence",
+                      "Consumer Confidence",
+                      "Consumer Confidence",
+                      "Midterm Election",
+                      "Midterm Election",
+                      "Midterm Election",
+                      "Presidential Election",
+                      "Presidential Election",
+                      "Presidential Election")) %>% 
+  
+  mutate(type = c("Type 1: no drift, no trend",
+                  "Type 2: with drift, no trend",
+                  "Type 3: with drift, and trend",
+                  "Type 1: no drift, no trend",
+                  "Type 2: with drift, no trend",
+                  "Type 3: with drift, and trend",
+                  "Type 1: no drift, no trend",
+                  "Type 2: with drift, no trend",
+                  "Type 3: with drift, and trend",
+                  "Type 1: no drift, no trend",
+                  "Type 2: with drift, no trend",
+                  "Type 3: with drift, and trend",
+                  "Type 1: no drift, no trend",
+                  "Type 2: with drift, no trend",
+                  "Type 3: with drift, and trend",
+                  "Type 1: no drift, no trend",
+                  "Type 2: with drift, no trend",
+                  "Type 3: with drift, and trend",
+                  "Type 1: no drift, no trend",
+                  "Type 2: with drift, no trend",
+                  "Type 3: with drift, and trend",
+                  "Type 1: no drift, no trend",
+                  "Type 2: with drift, no trend",
+                  "Type 3: with drift, and trend")) %>% 
+  dplyr::select(type, Z_rho, p.value)
+
+row.names(pp_data) <- NULL
+
+kable(pp_data, caption = "Variable Stationarities",
+      col.names = c("Variable", "Z_rho", "p-value"),
+      format = "latex",
+      booktabs = T) %>%
+    kable_styling(latex_options = "striped") %>%
+    group_rows("American Dream", 1, 3) %>%
+    group_rows("Gini Coefficient", 4, 6) %>%
+    group_rows("Social Mobility", 7, 9) %>%
+    group_rows("Home Ownership", 10, 12) %>% 
+    group_rows("Policy Mood", 13, 15) %>%
+    group_rows("Consumer Confidence", 16, 18) %>% 
+    group_rows("Midterm Election", 19, 21) %>%
+    group_rows("Presidential Election", 22, 24) 
+
+```
+
+```{r stationarity plots pt 1, echo = FALSE, warning=FALSE, fig.align="center", fig.width=7, fig.height=5}
+
+am_plot <- lag_data %>% 
+  ggplot(aes(year_decimal, amdream)) + 
+  geom_line() +
   theme_classic() +
-  # 
-  # scale_y_continuous(breaks = seq(from = 0, to = 4, by = .5),
-  #                    limits = c(0, 4)) +
+  scale_y_continuous(breaks = seq(from = 0, to = 70, by = 10),
+                     limits = c(0, 70)) +
+  scale_x_continuous(breaks = seq(from = 1973, to = 2018, by = 3),
+                     limits = c(1973, 2019),
+                     labels = seq(from = 1973, to = 2018, by = 3)) +
+  #because labels vector has to be same length as breaks vector, it wasn't
+  #possible to make three ticks on the x axis for every label
+  
+  theme(axis.line = element_line(color = "grey85"),
+        axis.ticks = element_line(color = "grey85"),
+        axis.ticks.length = unit(-3, "pt"),
+        axis.text.x = element_text(margin = margin(t = 15, "pt"),
+                                   family = "Century"),
+        axis.text.y = element_text(margin = margin(r = 10, "pt"),
+                                   family = "Century"),
+        
+        axis.title.x = element_text(family = "Century"),
+        axis.title.y = element_text(family = "Century"),
+        
+        plot.title = element_text(face = "bold",
+                                  size = 13,
+                                  family = "Century")) +
+  
+  labs(y = "Public Belief in the American Dream",
+       x = "Time (year by quarter)",
+       title = "Figure 1: The Dynamics of Public Belief in the American Dream")
+
+am_plot
+
+
+```
+
+
+```{r stationarity plots pt 2, echo = FALSE, warning=FALSE, fig.show='hold'}
+
+gini_stat_plot <- lag_data %>% 
+  dplyr::select(year_decimal, ginihq) %>% 
+  drop_na() %>% 
+  ggplot(aes(year_decimal, ginihq)) + 
+  geom_line() +
+  geom_line(stat = "smooth",
+            formula = y ~ x,
+            color = "royalblue1",
+            method = "loess") +
+  theme_classic() +
+  
+  scale_y_continuous(breaks = seq(from = .37, to = .5, by = .03),
+                     limits = c(.37, .5)) +
+  scale_x_continuous(breaks = seq(from = 1973, to = 2018, by = 6),
+                     limits = c(1973, 2019),
+                     labels = seq(from = 1973, to = 2018, by = 6)) +
+  theme(axis.line = element_line(color = "grey85"),
+        axis.ticks = element_line(color = "grey85"),
+        axis.ticks.length = unit(-3, "pt"),
+        axis.text.x = element_text(margin = margin(t = 15, "pt"),
+                                   family = "Century"),
+        axis.text.y = element_text(margin = margin(r = 5, "pt"),
+                                   family = "Century"),
+        axis.title.x = element_text(family = "Century"),
+        axis.title.y = element_text(family = "Century", 
+                                    size = 8),
+        plot.title = element_text(face = "bold",
+                                  size = 10,
+                                  family = "Century")) +
+  
+  # ylim(0, 70) +
+  # xlim(1973, 2019) + 
+  labs(x = "Year (by quarter)",
+       y = "Gini Coefficient",
+       title = "American Gini coefficient over Time")
+
+
+gini_mod <- lm(ginihq ~ year_decimal, data = lag_data)
+
+gini_data <- augment(gini_mod)
+
+gini_resid <- ggplot(gini_data, aes(x = .fitted, y = .resid)) +
+  geom_line()  +
+  theme_classic() +
+  
+  # scale_y_continuous(breaks = seq(from = -.15, to = .15, by = .01),
+  #                    limits = c(.37, .5)) +
   # scale_x_continuous(breaks = seq(from = 1973, to = 2018, by = 3),
   #                    limits = c(1973, 2019),
   #                    labels = seq(from = 1973, to = 2018, by = 3)) +
-
+  
   theme(axis.line = element_line(color = "grey85"),
         axis.ticks = element_line(color = "grey85"),
         axis.ticks.length = unit(-3, "pt"),
@@ -738,18 +701,115 @@ am_delta_dist <- delta_data %>%
         axis.title.x = element_text(family = "Century"),
         axis.title.y = element_text(family = "Century"),
         plot.title = element_text(face = "bold",
-                                  size = 14,
+                                  size = 10,
                                   family = "Century")) +
+  labs(x = "Fitted",
+       y = "Residual",
+       title = "Gini Residuals")
+
+
+prez_stat_plot <- lag_data %>% 
+  dplyr::select(year_decimal, prezcamp) %>% 
+  drop_na() %>% 
+  ggplot(aes(year_decimal, prezcamp)) + 
+  geom_line() +
+  geom_line(stat = "smooth",
+            formula = y ~ x,
+            color = "royalblue1",
+            method = "loess") +
+  theme_classic() +
   
+  scale_y_continuous(breaks = seq(from = 0, to = 4, by = 1),
+                     limits = c(0, 4)) +
+  scale_x_continuous(breaks = seq(from = 1973, to = 2018, by = 6),
+                     limits = c(1973, 2019),
+                     labels = seq(from = 1973, to = 2018, by = 6)) +
+    
   # ylim(0, 70) +
   # xlim(1973, 2019) + 
+  labs(x = "Year (by quarter)",
+       y = "Quarter of Presidential Campaign",
+       title = "American Presidential Campaign Cycles over Time") +
+  
+  theme(axis.line = element_line(color = "grey85"),
+        axis.ticks = element_line(color = "grey85"),
+        axis.ticks.length = unit(-3, "pt"),
+        axis.text.x = element_text(margin = margin(t = 15, "pt"),
+                                   family = "Century"),
+        axis.text.y = element_text(margin = margin(r = 5, "pt"),
+                                   family = "Century"),
+        axis.title.x = element_text(family = "Century"),
+        axis.title.y = element_text(family = "Century",
+                                    size = 8),
+        plot.title = element_text(face = "bold",
+                                  size = 10,
+                                  family = "Century"))
 
-  labs(x = "Change in American Dream (between quarters)",
-       y = "Frequency",
-       title = "Figure 4: Distribution of Change in Belief in American Dream")
+prez_mod <- lm(prezcamp ~ year_decimal, data = lag_data)
 
+prez_data <- augment(prez_mod)
 
-am_delta_dist
+prez_resid <- ggplot(prez_data, aes(x = .fitted, y = .resid)) +
+  geom_line()  +
+  theme_classic() +
+  
+  # scale_y_continuous(breaks = seq(from = -.15, to = .15, by = .01),
+  #                    limits = c(.37, .5)) +
+  # scale_x_continuous(breaks = seq(from = 1973, to = 2018, by = 3),
+  #                    limits = c(1973, 2019),
+  #                    labels = seq(from = 1973, to = 2018, by = 3)) +
+  theme(axis.line = element_line(color = "grey85"),
+        axis.ticks = element_line(color = "grey85"),
+        axis.ticks.length = unit(-3, "pt"),
+        axis.text.x = element_text(margin = margin(t = 15, "pt"),
+                                   family = "Century"),
+        axis.text.y = element_text(margin = margin(r = 5, "pt"),
+                                   family = "Century"),
+        axis.title.x = element_text(family = "Century"),
+        axis.title.y = element_text(family = "Century"),
+        plot.title = element_text(face = "bold",
+                                  size = 10,
+                                  family = "Century")) +
+  labs(x = "Fitted",
+       y = "Residual",
+       title = "President Campaign Residuals")
+
+stat_plots <- ggarrange(gini_stat_plot, gini_resid, prez_stat_plot, prez_resid)  
+
+grid.arrange(stat_plots, 
+             top = "Figure 2: Gini and Presidential Campaign Stationarities")
+
+```
+
+\newpage
+
+```{r stationary tables alternative, results = "asis", include=FALSE, warning = FALSE}
+
+# print(xtable(pp_am, digits = 4, caption = "American Dream Stationarity"),
+#       caption.placement = "top")
+# 
+# print(xtable(pp_g, digits = 4, caption = "Gini Coefficient Stationarity"), 
+#       caption.placement = 'top')
+# 
+# print(xtable(pp_h, digits = 4, caption = "Home Ownership Rate Stationarity"), 
+#       caption.placement = 'top')
+# 
+# print(xtable(pp_m, digits = 4, caption = "Public Policy Mood Stationarity"), 
+#       caption.placement = 'top')
+# 
+# print(xtable(pp_i, digits = 4, caption = "Consumer Confidence Stationarity"), 
+#       caption.placement = 'top')
+# 
+# print(xtable(pp_mid, digits = 4, caption = "Midterm Election Stationarity"), 
+#       caption.placement = 'top')
+# 
+# print(xtable(pp_prez, digits = 4, caption = "Presidential Election Stationarity"), 
+#       caption.placement = 'top')
+# 
+# kable(, format = "latex", caption = "Group Rows", booktabs = T) %>%
+#     kable_styling() %>%
+#     group_rows("Group 1", 4, 7) %>%
+#     group_rows("Group 2", 8, 10)
 
 ```
 
@@ -804,7 +864,7 @@ tiblet$ics[6] <- ((ics_lrm_1 - tiblet$ics[1] - tiblet$ics[2] - tiblet$ics[3] - t
 ```
 
  
-```{r fig 2, results= "asis", echo = FALSE, fig.align="center", fig.width=7, fig.height=5}
+```{r fig 2, results= "asis", echo = FALSE, fig.align="center", fig.width=7, fig.height=4.5}
 
 gini_plot <- tiblet %>% 
   ggplot() +
@@ -912,33 +972,86 @@ ics_plot <- tiblet %>%
        y = "Effect on Y")
 
 
-title <- text_grob("Figure 2: Estimated Lag Distributions for Belief in the American Dream",
-          size = 10,
-          family = "Times New Roman",
-          face = "bold")
-
-plot_title <- as_ggplot(title) +
-  theme(plot.margin = margin(0,3,0,0, "cm"))
+# title <- text_grob("Figure 2: Estimated Lag Distributions for Belief in the American Dream",
+#           size = 10,
+#           family = "Times New Roman",
+#           face = "bold")
+# 
+# plot_title <- as_ggplot(title) +
+#   theme(plot.margin = margin(0,3,0,0, "cm"))
 
 
 plots <- ggarrange(gini_plot, soc_plot, home_plot, ics_plot)  
 
 grid.arrange(plots, 
-             top = "Figure 5: Estimated Lag Distributions for Belief in the American Dream")
+             top = "Figure 3: Estimated Lag Distributions for Belief in the American Dream")
 
 # annotate_figure(plots,
 #                 top = text_grob("Figure 2: Estimated Lag Distributions for Belief in the American Dream",
 #                                 size = 10, face = "bold", family = "Times New Roman"))
 
 ```
+
+```{r am delta distibution plot, echo = FALSE, results = "asis", warning=FALSE, fig.align="center", fig.width=7, fig.height=4.5}
+
+delta_data <- lag_data %>% 
+  dplyr::select(am_delta) %>% 
+  drop_na()
+  
+am_delta_dist <- delta_data %>% 
+  ggplot(aes(x = am_delta)) +
+  geom_histogram(aes(y = ..density..), color = "white", bins = 30) +
+  stat_function(fun = dnorm, args = list(mean = mean(delta_data$am_delta), sd = sd(delta_data$am_delta)), position = "identity", color = "limegreen") +
+  theme_classic() +
+  # 
+  # scale_y_continuous(breaks = seq(from = 0, to = 4, by = .5),
+  #                    limits = c(0, 4)) +
+  # scale_x_continuous(breaks = seq(from = 1973, to = 2018, by = 3),
+  #                    limits = c(1973, 2019),
+  #                    labels = seq(from = 1973, to = 2018, by = 3)) +
+
+  theme(axis.line = element_line(color = "grey85"),
+        axis.ticks = element_line(color = "grey85"),
+        axis.ticks.length = unit(-3, "pt"),
+        axis.text.x = element_text(margin = margin(t = 15, "pt"),
+                                   family = "Century"),
+        axis.text.y = element_text(margin = margin(r = 5, "pt"),
+                                   family = "Century"),
+        axis.title.x = element_text(family = "Century"),
+        axis.title.y = element_text(family = "Century"),
+        plot.title = element_text(face = "bold",
+                                  size = 14,
+                                  family = "Century")) +
+  
+  # ylim(0, 70) +
+  # xlim(1973, 2019) + 
+
+  labs(x = "Change in American Dream (between quarters)",
+       y = "Frequency",
+       title = "Figure 4: Distribution of Change in Belief in American Dream")
+
+
+am_delta_dist
+
+```
 \newpage
+
+## Acknowledgements
+
+This paper was helped in large part by the generous and helpful advice and guidance of my TF, Le Bao, and my professor, Prof. Jeff Gill.
+
 ## Bibliography (in order of reference)
 
-Wolak, Jennifer, & Peterson, David A. M. (2020). The Dynamic American Dream. *American Journal of Political Science*, 64(4), 968-981.
+Wolak, Jennifer, & Peterson, David A. M. (2020). The Dynamic American Dream. *American Journal of Political Science*, 64(4), 968-981.\
 
-Bannerjee, Anindya, Juan Dolado, JohnW. Galbraith, and David F. Hendry. 1993.*Integration, Error Correction, and the Econometric Analysis of Non-Stationary Data*. Oxford: Oxford University Press.
+Bannerjee, Anindya, Juan Dolado, JohnW. Galbraith, and David F. Hendry. 1993.*Integration, Error Correction, and the Econometric Analysis of Non-Stationary Data*. Oxford: Oxford University Press.\
 
-De Boef, Suzanna, and Luke Keele. 2008. “Taking Time Seriously.” *American Journal of Political Science* 52(1): 184–200.
+De Boef, Suzanna, and Luke Keele. 2008. “Taking Time Seriously.” *American Journal of Political Science* 52(1): 184–200.\
 
-Nieman, Mark David, & Peterson, David A. M. (2019).
+Nieman, Mark David, & Peterson, David A. M. (2019).\
+
+Webb, Clayton, Suzanna Linn, and Matthew Lebo. 2020. “Beyond the Unit Root Question: Uncertainty and Inference.” *American Journal of Political Science* 64(2): 275–92.
+
+Webb, Clayton, Linn, Suzanna, & Lebo, Matthew. (2019). A Bounds Approach to Inference Using the Long Run Multiplier. *Political Analysis*, 27(3), 281-301.
+
 
